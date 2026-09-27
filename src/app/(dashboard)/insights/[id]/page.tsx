@@ -5,7 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { InsightEditor } from "@/src/components/insights/InsightEditor";
 import { ConfirmModal } from "@/src/components/ui/ConfirmModal";
-import { getInsightById, Insight } from "@/src/lib/insights-data";
+import { Insight } from "@/src/lib/insights-data";
+import { fetchInsightByIdFromApi, updateInsightInApi, deleteInsightInApi } from "@/src/lib/insights-api";
 import { useToast } from "@/src/components/ToastProvider";
 import Image from "next/image";
 
@@ -13,7 +14,7 @@ export default function InsightDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
-  const { success } = useToast();
+  const { success, error } = useToast();
 
   const [insight, setInsight] = useState<Insight | null | undefined>(undefined);
   const [mode, setMode] = useState<"view" | "edit">(
@@ -22,10 +23,18 @@ export default function InsightDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setInsight(getInsightById(params.id) ?? null);
-    }, 500);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+    fetchInsightByIdFromApi(params.id)
+      .then((data) => {
+        if (isMounted) setInsight(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load insight:", err);
+        if (isMounted) setInsight(null);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [params.id]);
 
   if (insight === undefined) return <DetailSkeleton />;
@@ -90,9 +99,16 @@ export default function InsightDetailPage() {
           mode="edit"
           initialData={insight}
           onCancel={() => setMode("view")}
-          onSaved={(updated) => {
-            setInsight(updated);
-            setMode("view");
+          onSaved={async (updated, action) => {
+            try {
+              const token = localStorage.getItem("atlas_admin_token");
+              const saved = await updateInsightInApi(params.id, updated, token);
+              setInsight(saved);
+              setMode("view");
+              success(action === "publish" ? "Insight published to website." : "Draft saved successfully.");
+            } catch (err: any) {
+              error(err.message || "Failed to update insight");
+            }
           }}
         />
       ) : (
@@ -177,9 +193,15 @@ export default function InsightDetailPage() {
       <ConfirmModal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        onConfirm={() => {
-          success("Insight deleted successfully.");
-          router.push("/insights");
+        onConfirm={async () => {
+          try {
+            const token = localStorage.getItem("atlas_admin_token");
+            await deleteInsightInApi(params.id, token);
+            success("Insight deleted successfully.");
+            router.push("/insights");
+          } catch (err: any) {
+            error(err.message || "Failed to delete insight");
+          }
         }}
         title="Delete Insight?"
         description={`"${insight.title}" will be permanently deleted.`}

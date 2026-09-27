@@ -1,13 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { clearSession } from "@/src/lib/auth";
+import { clearSession, getToken } from "@/src/lib/auth";
+import { logoutAdmin } from "@/src/lib/api-client";
 import { ConfirmModal } from "@/src/components/ui/ConfirmModal";
 
 export function LogoutModal({ onCancel }: { onCancel: () => void }) {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const token = getToken();
+    await logoutAdmin(token);
     clearSession();
     router.replace("/login");
   };

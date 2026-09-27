@@ -1,15 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/src/components/layout/Sidebar";
 import { Topbar } from "@/src/components/layout/Topbar";
+import { getToken } from "@/src/lib/auth";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      router.replace("/login");
+    } else {
+      setIsAuthed(true);
+    }
+  }, [router]);
+
+  if (isAuthed === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-atlas-bg">
+        <div className="size-6 animate-spin rounded-full border-2 border-atlas-gold border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-atlas-bg">

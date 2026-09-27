@@ -1,25 +1,46 @@
 export type InsightStatus = "Published" | "Draft";
 
+export type InsightContentBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "quote"; quote: string; attribution: string }
+  | { type: "image"; src: string; caption?: string };
+
+export type InsightSection = {
+  heading: string;
+  content: InsightContentBlock[];
+};
+
 export type Insight = {
   id: string;
+  slug?: string;
   title: string;
   category: string;
+  tag?: string;
   status: InsightStatus;
   author: string;
   updatedAt: string;
   publishDate?: string;
+  readTime?: string;
+  breadcrumb?: string;
   excerpt: string;
-  content: string;
+  intro?: string;
+  content?: string;
   featuredAsset?: string;
+  body?: InsightSection[];
 };
 
 export const CATEGORIES = [
+  "Governance",
+  "Leadership",
+  "Project Drift",
+  "Delivery Confidence",
+  "Forensic Analysis",
+  "Readiness",
+  "Analysis",
   "Strategy",
   "Operations",
-  "Leadership",
   "Technology",
   "Risk",
-  "Governance",
 ];
 
 export const insightsData: Insight[] = [

@@ -1,19 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  Bell,
-  HelpCircle,
   Menu,
   User,
   Settings,
   LogOut,
-  Check,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { dummyUser } from "@/src/lib/dummy-data";
-import { clearSession } from "@/src/lib/auth";
-import { Modal } from "../ui/Modal";
+import { clearSession, getUser, getToken } from "@/src/lib/auth";
+import { logoutAdmin } from "@/src/lib/api-client";
+import { AdminUser } from "@/src/types";
 import { ConfirmModal } from "../ui/ConfirmModal";
 
 type TopbarProps = {
@@ -22,20 +19,28 @@ type TopbarProps = {
 
 export function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
 
-  const logout = () => {
+  useEffect(() => {
+    setCurrentUser(getUser());
+  }, []);
+
+  const logout = async () => {
+    const token = getToken();
+    await logoutAdmin(token);
     clearSession();
     router.replace("/login");
   };
 
-  const initials = dummyUser.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("");
+  const displayName = currentUser?.name || currentUser?.email || "Atlas Admin";
+  const initials =
+    displayName
+      .split(/[\s@]+/)
+      .slice(0, 2)
+      .map((n) => n[0]?.toUpperCase())
+      .join("") || "AD";
 
   return (
     <>
@@ -51,63 +56,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <div className="ml-auto flex items-center gap-1 sm:gap-3">
           <div className="relative">
             <button
-              onClick={() => {
-                setShowNotifications((v) => !v);
-                setShowProfile(false);
-              }}
-              className="relative rounded-lg p-2 text-atlas-textMuted hover:bg-atlas-surface hover:text-atlas-text"
-              title="Notifications"
-            >
-              <Bell className="size-[18px]" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-atlas-gold" />
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 top-12 z-50 w-[300px] overflow-hidden rounded-xl border border-atlas-border bg-atlas-surface shadow-2xl">
-                <div className="flex items-center justify-between border-b border-atlas-border px-4 py-3">
-                  <p className="text-sm font-semibold">Notifications</p>
-                  <span className="text-[11px] text-atlas-gold">3 new</span>
-                </div>
-
-                {[
-                  "New inquiry received",
-                  "Homepage was updated",
-                  "Insight published",
-                ].map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => setShowNotifications(false)}
-                    className="flex w-full items-start gap-3 border-b border-atlas-border px-4 py-3 text-left hover:bg-atlas-bg"
-                  >
-                    <span className="mt-1 size-2 rounded-full bg-atlas-gold" />
-                    <span className="text-sm text-atlas-textMuted">{item}</span>
-                  </button>
-                ))}
-
-                <button className="flex w-full items-center justify-center gap-2 px-4 py-3 text-xs font-semibold text-atlas-gold hover:bg-atlas-bg">
-                  <Check className="size-3" />
-                  Mark all as read
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setShowHelp(true)}
-            className="hidden rounded-lg p-2 text-atlas-textMuted hover:bg-atlas-surface hover:text-atlas-text sm:block"
-            title="Help"
-          >
-            <HelpCircle className="size-[18px]" />
-          </button>
-
-          <div className="mx-1 hidden h-6 w-px bg-atlas-border sm:block" />
-
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowProfile((v) => !v);
-                setShowNotifications(false);
-              }}
+              onClick={() => setShowProfile((v) => !v)}
               className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-atlas-surface"
             >
               <div className="flex size-8 items-center justify-center rounded-full bg-atlas-surface3 text-[11px] font-bold text-atlas-textMuted">
@@ -115,11 +64,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
               </div>
 
               <div className="hidden text-left md:block">
-                <p className="text-xs font-semibold text-atlas-text">
-                  {dummyUser.name}
+                <p className="max-w-[150px] truncate text-xs font-semibold text-atlas-text">
+                  {displayName}
                 </p>
-                <p className="text-[10px] text-atlas-textMuted">
-                  Administrator
+                <p className="text-[10px] capitalize text-atlas-textMuted">
+                  {currentUser?.role || "Administrator"}
                 </p>
               </div>
             </button>
@@ -127,7 +76,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             {showProfile && (
               <div className="absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-xl border border-atlas-border bg-atlas-surface shadow-2xl">
                 <button
-                  onClick={() => router.push("/settings")}
+                  onClick={() => {
+                    setShowProfile(false);
+                    router.push("/settings");
+                  }}
                   className="flex w-full items-center gap-3 px-4 py-3 text-sm text-atlas-textMuted hover:bg-atlas-bg hover:text-atlas-text"
                 >
                   <User className="size-4" />
@@ -135,7 +87,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
                 </button>
 
                 <button
-                  onClick={() => router.push("/settings")}
+                  onClick={() => {
+                    setShowProfile(false);
+                    router.push("/settings");
+                  }}
                   className="flex w-full items-center gap-3 px-4 py-3 text-sm text-atlas-textMuted hover:bg-atlas-bg hover:text-atlas-text"
                 >
                   <Settings className="size-4" />
@@ -157,27 +112,6 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           </div>
         </div>
       </header>
-
-      <Modal
-        open={showHelp}
-        onClose={() => setShowHelp(false)}
-        title="Help & Support"
-      >
-        <div className="space-y-4">
-          <p className="text-sm leading-6 text-atlas-textMuted">
-            Use the sidebar to manage website pages, insights, inquiries, legal
-            content and system settings.
-          </p>
-
-          <div className="rounded-lg border border-atlas-border bg-atlas-bg p-4">
-            <p className="text-sm font-semibold">Need assistance?</p>
-            <p className="mt-1 text-xs text-atlas-textMuted">
-              Contact your system administrator for account or publishing
-              issues.
-            </p>
-          </div>
-        </div>
-      </Modal>
 
       <ConfirmModal
         open={showLogoutConfirm}

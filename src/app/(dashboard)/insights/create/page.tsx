@@ -3,9 +3,23 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { InsightEditor } from "@/src/components/insights/InsightEditor";
+import { createInsightInApi } from "@/src/lib/insights-api";
+import { useToast } from "@/src/components/ToastProvider";
 
 export default function CreateInsightPage() {
   const router = useRouter();
+  const { success, error } = useToast();
+
+  const handleSaved = async (insightData: any, action: "draft" | "publish") => {
+    try {
+      const token = localStorage.getItem("atlas_admin_token");
+      await createInsightInApi(insightData, token);
+      success(action === "publish" ? "Insight published to website." : "Draft saved successfully.");
+      router.push("/insights");
+    } catch (err: any) {
+      error(err.message || "Failed to create insight");
+    }
+  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -30,7 +44,7 @@ export default function CreateInsightPage() {
       <InsightEditor
         mode="create"
         onCancel={() => router.push("/insights")}
-        onSaved={() => router.push("/insights")}
+        onSaved={handleSaved}
       />
     </div>
   );

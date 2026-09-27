@@ -2,19 +2,29 @@ import { dummyDashboardData, dummySettings, dummyUser } from "./dummy-data";
 import { AdminUser, DashboardData, SiteSettings } from "@/src/types";
 import { PasswordChangePayload, ApiResult } from "@/src/types";
 
+import { fetchDashboardDataFromApi } from "./api-client";
+import { getToken } from "./auth";
+
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function fetchDashboardData(): Promise<DashboardData> {
-  await wait(900);
-  return dummyDashboardData;
+  try {
+    const token = getToken();
+    return await fetchDashboardDataFromApi(token);
+  } catch (error) {
+    console.error("[Dashboard] Failed to fetch live data from backend:", error);
+    return dummyDashboardData;
+  }
 }
 
 export async function fetchSiteSettings(): Promise<SiteSettings> {
   await wait(800);
   return dummySettings;
 }
+
+import { loginAdmin } from "./api-client";
 
 export type LoginPayload = { email: string; password: string };
 export type LoginResponse = {
@@ -28,26 +38,20 @@ export async function loginRequest({
   email,
   password,
 }: LoginPayload): Promise<LoginResponse> {
-  await wait(1100);
-
-  if (!email.trim() || !password.trim()) {
-    return { success: false, message: "Email and password are required." };
+  try {
+    const result = await loginAdmin({ email, password });
+    return {
+      success: true,
+      message: "Signed in successfully.",
+      user: result.user,
+      token: result.token,
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Authentication failed.",
+    };
   }
-
-  if (!email.includes("@")) {
-    return { success: false, message: "Enter a valid email address." };
-  }
-
-  if (password.length < 6) {
-    return { success: false, message: "Incorrect email or password." };
-  }
-
-  return {
-    success: true,
-    message: "Signed in successfully.",
-    user: dummyUser,
-    token: "dummy-jwt-token-atlas-admin",
-  };
 }
 
 export type UpdateSettingsResponse = {

@@ -5,14 +5,15 @@ import { useRouter } from "next/navigation";
 import { Plus, Search, Eye, Pencil, Trash2, BarChart3 } from "lucide-react";
 import { ConfirmModal } from "@/src/components/ui/ConfirmModal";
 import { InsightRowSkeleton } from "@/src/components/insights/InsightRowSkeleton";
-import { insightsData, Insight } from "@/src/lib/insights-data";
+import { Insight } from "@/src/lib/insights-data";
+import { fetchInsightsFromApi, deleteInsightInApi } from "@/src/lib/insights-api";
 import { useToast } from "@/src/components/ToastProvider";
 
 const PAGE_SIZE = 6;
 
 export default function InsightsPage() {
   const router = useRouter();
-  const { success } = useToast();
+  const { success, error } = useToast();
 
   const [items, setItems] = useState<Insight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,12 +22,20 @@ export default function InsightsPage() {
   const [page, setPage] = useState(1);
   const [deleteItem, setDeleteItem] = useState<Insight | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setItems(insightsData);
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetchInsightsFromApi();
+      setItems(res.insights);
+    } catch (err: any) {
+      error(err.message || "Failed to load insights from backend");
+    } finally {
       setIsLoading(false);
-    }, 700);
-    return () => clearTimeout(timer);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const filtered = useMemo(() => {
@@ -178,12 +187,16 @@ export default function InsightsPage() {
       <ConfirmModal
         open={!!deleteItem}
         onClose={() => setDeleteItem(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteItem) {
-            setItems((items) =>
-              items.filter((item) => item.id !== deleteItem.id),
-            );
-            success("Insight deleted successfully.");
+            try {
+              const token = localStorage.getItem("atlas_admin_token");
+              await deleteInsightInApi(deleteItem.id, token);
+              setItems((prev) => prev.filter((item) => item.id !== deleteItem.id));
+              success("Insight deleted successfully.");
+            } catch (err: any) {
+              error(err.message || "Failed to delete insight");
+            }
           }
           setDeleteItem(null);
         }}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, Pencil, FileText, ShieldCheck } from "lucide-react";
 import { legalData, LegalDoc } from "@/src/lib/legal-data";
+import { fetchLegalDocsFromApi } from "@/src/lib/legal-api";
 
 export default function LegalContentPage() {
   const router = useRouter();
@@ -11,11 +12,30 @@ export default function LegalContentPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setItems(legalData);
-      setIsLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    async function loadDocuments() {
+      try {
+        const liveDocs = await fetchLegalDocsFromApi();
+        if (isMounted && liveDocs.length > 0) {
+          setItems(liveDocs);
+          setIsLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.warn("[Dashboard Legal] Live fetch failed, using fallback:", err);
+      }
+
+      if (isMounted) {
+        setItems(legalData);
+        setIsLoading(false);
+      }
+    }
+
+    loadDocuments();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -46,21 +66,26 @@ export default function LegalContentPage() {
                   <FileText className="size-5" />
                 </div>
 
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                    doc.status === "Published"
-                      ? "bg-green-500/10 text-green-400"
-                      : "bg-amber-500/10 text-amber-400"
-                  }`}
-                >
-                  {doc.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-atlas-gold/10 px-2.5 py-0.5 text-[10px] font-bold text-atlas-gold">
+                    {doc.sections?.length ?? 0} Sections
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      doc.status === "Published"
+                        ? "bg-green-500/10 text-green-400"
+                        : "bg-amber-500/10 text-amber-400"
+                    }`}
+                  >
+                    {doc.status}
+                  </span>
+                </div>
               </div>
 
               <h2 className="mt-5 font-serif text-xl">{doc.title}</h2>
 
               <p className="mt-2 flex-1 text-sm leading-6 text-atlas-textMuted">
-                {doc.description}
+                {doc.subtitle || doc.description}
               </p>
 
               <div className="mt-4 flex items-center justify-between text-xs text-atlas-textPlaceholder">

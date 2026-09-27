@@ -1,3 +1,10 @@
+import {
+  fetchPagesFromApi,
+  updatePageInApi,
+  togglePageVisibilityInApi,
+} from "./api-client";
+import { getToken } from "./auth";
+
 export type PageItem = {
   id: string;
   title: string;
@@ -13,7 +20,7 @@ export const initialPages: PageItem[] = [
     title: "Home",
     slug: "/",
     status: "Published",
-    updatedAt: "Today, 10:30 AM",
+    updatedAt: "Today",
     author: "Atlas Admin",
   },
   {
@@ -75,14 +82,36 @@ export const initialPages: PageItem[] = [
 ];
 
 export async function fetchPages(): Promise<PageItem[]> {
-  await new Promise((r) => setTimeout(r, 600));
-  return initialPages;
+  try {
+    return await fetchPagesFromApi();
+  } catch (error) {
+    console.error("[Pages] Failed to fetch from backend API, using fallback:", error);
+    return initialPages;
+  }
 }
 
 export async function updatePage(
   id: string,
-  updates: { title: string; status: PageItem["status"] },
+  updates: { title?: string; slug?: string; status?: PageItem["status"] }
 ): Promise<{ success: boolean; message: string }> {
-  await new Promise((r) => setTimeout(r, 500));
-  return { success: true, message: "Page updated successfully." };
+  const token = getToken();
+  try {
+    return await updatePageInApi(id, updates, token);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update page";
+    return { success: false, message };
+  }
+}
+
+export async function togglePageVisibility(
+  id: string,
+  status: PageItem["status"]
+): Promise<{ success: boolean; message: string }> {
+  const token = getToken();
+  try {
+    return await togglePageVisibilityInApi(id, status, token);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update visibility";
+    return { success: false, message };
+  }
 }

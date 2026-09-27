@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Pencil, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Pencil, ShieldCheck, Sparkles, Link2 } from "lucide-react";
 import { LegalEditor } from "@/src/components/legal/LegalEditor";
 import { getLegalDocBySlug, LegalDoc } from "@/src/lib/legal-data";
+import { fetchLegalDocBySlugFromApi } from "@/src/lib/legal-api";
 
 export default function LegalDetailPage() {
   const router = useRouter();
@@ -13,14 +14,32 @@ export default function LegalDetailPage() {
 
   const [doc, setDoc] = useState<LegalDoc | null | undefined>(undefined);
   const [mode, setMode] = useState<"view" | "edit">(
-    searchParams.get("mode") === "edit" ? "edit" : "view",
+    searchParams.get("mode") === "edit" ? "edit" : "view"
   );
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDoc(getLegalDocBySlug(params.slug) ?? null);
-    }, 400);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    async function loadDoc() {
+      try {
+        const liveDoc = await fetchLegalDocBySlugFromApi(params.slug);
+        if (isMounted && liveDoc) {
+          setDoc(liveDoc);
+          return;
+        }
+      } catch (err) {
+        console.warn("[Dashboard Legal] Live fetch failed, using fallback:", err);
+      }
+
+      if (isMounted) {
+        setDoc(getLegalDocBySlug(params.slug) ?? null);
+      }
+    }
+
+    loadDoc();
+    return () => {
+      isMounted = false;
+    };
   }, [params.slug]);
 
   if (doc === undefined) return <DetailSkeleton />;
@@ -68,7 +87,7 @@ export default function LegalDetailPage() {
         {mode === "view" && (
           <button
             onClick={() => setMode("edit")}
-            className="flex items-center gap-2 rounded-lg bg-atlas-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-atlas-bg"
+            className="flex items-center gap-2 rounded-lg bg-atlas-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-atlas-bg hover:bg-atlas-goldLight"
           >
             <Pencil className="size-4" />
             Edit Document
@@ -87,9 +106,10 @@ export default function LegalDetailPage() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Main content display with indexes */}
           <div className="space-y-6 lg:col-span-2">
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-atlas-gold/10 px-3 py-1 text-xs text-atlas-gold">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-atlas-gold/10 px-3 py-1 text-xs text-atlas-gold font-bold">
                 {doc.version}
               </span>
               <span
@@ -101,19 +121,67 @@ export default function LegalDetailPage() {
               >
                 {doc.status}
               </span>
+              <span className="text-xs text-atlas-textMuted">
+                &bull; {doc.sections.length} indexed sections
+              </span>
             </div>
 
-            {doc.description && (
-              <p className="text-sm italic leading-7 text-atlas-textMuted">
-                {doc.description}
+            {(doc.subtitle || doc.description) && (
+              <p className="text-sm italic leading-relaxed text-atlas-textMuted">
+                {doc.subtitle || doc.description}
               </p>
             )}
 
-            <p className="whitespace-pre-wrap text-sm leading-7 text-atlas-text">
-              {doc.content}
-            </p>
+            {/* Render sections with indexed format */}
+            <div className="divide-y divide-atlas-border space-y-6">
+              {doc.sections.map((section) => (
+                <div key={section.id} className="pt-6 first:pt-0 space-y-3">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-serif text-3xl leading-none text-atlas-gold">
+                      {section.n}
+                    </span>
+                    <h2 className="font-serif text-xl text-atlas-text">
+                      {section.title}
+                    </h2>
+                  </div>
+
+                  <div className="space-y-2">
+                    {section.paragraphs.map((para, pIdx) => (
+                      <p
+                        key={pIdx}
+                        className="text-sm leading-relaxed text-atlas-textMuted"
+                      >
+                        {para}
+                      </p>
+                    ))}
+                  </div>
+
+                  {section.highlight && (
+                    <div className="mt-3 max-w-md rounded border border-atlas-border bg-atlas-surface p-3.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-atlas-gold flex items-center gap-1.5">
+                        <Sparkles className="size-3" />
+                        {section.highlight.label}
+                      </p>
+                      <p className="mt-1 text-sm text-atlas-text">
+                        {section.highlight.value}
+                      </p>
+                    </div>
+                  )}
+
+                  {section.cta && (
+                    <div className="mt-3">
+                      <span className="inline-flex items-center gap-1.5 rounded border border-atlas-gold/50 px-3.5 py-1.5 text-xs font-semibold text-atlas-gold">
+                        <Link2 className="size-3" />
+                        {section.cta.label}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
+          {/* Compliance Ops Sidebar in view mode */}
           <div className="lg:col-span-1">
             <div className="sticky top-6 space-y-4 rounded-xl border border-atlas-border bg-atlas-surface p-6 text-sm">
               <h2 className="font-serif text-xl text-atlas-text">
@@ -128,7 +196,7 @@ export default function LegalDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-atlas-textMuted">Effective Date:</span>
                 <span className="font-semibold text-atlas-text">
-                  {doc.effectiveDate ?? "—"}
+                  {doc.effectiveDate || "—"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -138,9 +206,15 @@ export default function LegalDetailPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
+                <span className="text-atlas-textMuted">Sections:</span>
+                <span className="font-semibold text-atlas-text">
+                  {doc.sections.length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-atlas-textMuted">Last Updated:</span>
                 <span className="font-semibold text-atlas-text">
-                  {doc.updatedAt}
+                  {doc.updatedAt || "Recently"}
                 </span>
               </div>
             </div>

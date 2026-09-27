@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { LogoutModal } from "./LogoutModal";
-import Image from "next/image";
 
 type SidebarProps = {
   isOpen?: boolean;
@@ -63,19 +62,11 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           <button
             type="button"
             onClick={handleLogoClick}
-            className="block cursor-pointer"
-            aria-label="Go to Dashboard"
+            className="shrink-0 cursor-pointer font-serif text-2xl font-semibold tracking-[0.08em] text-cream transition-colors hover:text-gold"
+            aria-label="LMCS Dashboard"
           >
-            <Image
-              src="/logo.png"
-              alt="Project Logo"
-              width={170}
-              height={48}
-              priority
-              className="h-auto max-h-12 w-auto max-w-42.5 object-contain"
-            />
+            LMCS
           </button>
-
 
           <button
             onClick={onClose}
